@@ -1,0 +1,93 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MessageType {
+  text
+  image
+  video
+  audio
+  file
+}
+
+enum MessageStatusValue {
+  sent
+  delivered
+  read
+}
+
+model User {
+  id        String   @id @default(cuid())
+  googleId  String   @unique
+  email     String   @unique
+  name      String
+  avatar    String?
+  lastSeen  DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sentMessages Message[]
+  participants Participant[]
+  statuses     MessageStatus[]
+}
+
+model Conversation {
+  id           String        @id @default(cuid())
+  name         String?
+  isGroup      Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  participants Participant[]
+  messages     Message[]
+}
+
+model Participant {
+  id             String       @id @default(cuid())
+  userId         String
+  conversationId String
+  createdAt      DateTime     @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, conversationId])
+}
+
+model Message {
+  id             String      @id @default(cuid())
+  content        String
+  type           MessageType @default(text)
+  mediaUrl       String?
+  deletedAt      DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  senderId       String
+  conversationId String
+  replyToId      String?
+
+  sender       User            @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  conversation Conversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  replyTo      Message?        @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies      Message[]       @relation("MessageReplies")
+  statuses     MessageStatus[]
+}
+
+model MessageStatus {
+  id        String             @id @default(cuid())
+  messageId String
+  userId    String
+  status    MessageStatusValue @default(sent)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+}
